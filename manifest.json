@@ -6,7 +6,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["src/jwt.js", "src/format.js", "src/selection.js", "src/card.js", "src/main.js"],
       "run_at": "document_idle",
       "all_frames": true
     }

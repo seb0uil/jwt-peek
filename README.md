@@ -31,20 +31,25 @@ Also works in other Chromium-based browsers (Edge, Brave, Arc…).
 ## Structure
 
 ```
-manifest.json   MV3 manifest: one content script injected into every page and iframe
-content.js      All the logic: detection, decoding, card rendering, event handling
+manifest.json       MV3 manifest: injects the scripts below, in order, into every page and iframe
+src/jwt.js          Jwt — base64url/JSON decoding and JWT search in text (no DOM)
+src/format.js       Fmt — time claims, relative dates, TTL, expiration status
+src/selection.js    TokenSelection — reads the selected token from the focused field or the page
+src/card.js         Card — renders the decoded token in a closed Shadow DOM, copy button, positioning
+src/main.js         Entry point: event listeners
 ```
 
-### How `content.js` works
+MV3 content scripts can't be ES modules, but scripts listed in the same `content_scripts` entry share one scope and load in order. Each file therefore exposes a single namespace object (`Jwt`, `Fmt`, `TokenSelection`, `Card`), which keeps helpers private and avoids shadowing globals such as `window.close` or `window.status`. A file can only use namespaces from files listed before it in `manifest.json`.
+
+### How it works
 
 | Part | Role |
 |---|---|
-| `b64urlDecode`, `parse` | Decodes the header and payload: base64url → UTF-8 → JSON |
-| `findIn`, `findAround` | Finds a JWT in a text, or around a cursor position (regex `eyJ….….…`; each candidate is validated with `parse`) |
-| `getToken` | Reads the current selection: focused input field first, then the page selection, then expands a partial selection |
-| `status`, `rel`, `dur`, `toSec` | Expiration status and date/duration formatting |
-| `show` | Builds the card inside a closed Shadow DOM and positions it below (or above) the selection |
-| Event listeners | `mouseup` / `keyup` trigger detection; `mousedown`, `scroll`, `resize` and `Esc` close the card. They use the capture phase so they still fire on pages that stop propagation |
+| `Jwt.parse`, `Jwt.findIn`, `Jwt.findAround` | Decodes the header and payload (base64url → UTF-8 → JSON) and finds a JWT in a text or around a cursor position (regex `eyJ….….…`; each candidate is validated with `parse`) |
+| `TokenSelection.get` | Reads the current selection: focused input field first, then the page selection, then expands a partial selection |
+| `Fmt` | Expiration status and date/duration formatting |
+| `Card.show` / `Card.close` | Builds the card inside a closed Shadow DOM and positions it below (or above) the selection |
+| `main.js` | `mouseup` / `keyup` trigger detection; `mousedown`, `scroll`, `resize` and `Esc` close the card. Listeners use the capture phase so they still fire on pages that stop propagation |
 
 ## Security and privacy
 
