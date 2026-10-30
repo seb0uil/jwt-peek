@@ -149,6 +149,16 @@ const Card = (() => {
     root.append(h("style", null, CSS), card);
     document.documentElement.appendChild(host);
     place(card, rect);
+    log(data);
+  }
+
+  // niveau "Verbose" de la console : masqué par défaut dans DevTools
+  function log({ header, payload, sig }) {
+    console.groupCollapsed(`[JWT Peek] ${header.alg || "?"} · ${Fmt.status(payload)[0]}`);
+    console.debug("header", header);
+    console.debug("payload", payload);
+    console.debug("signature", sig || "(aucune)");
+    console.groupEnd();
   }
 
   function close() {
