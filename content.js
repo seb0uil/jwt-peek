@@ -1,6 +1,9 @@
 // JWT Peek — décodage 100 % local. Aucun fetch, aucun storage, aucune permission.
 (() => {
   const TIME_CLAIMS = ["exp", "nbf", "iat", "auth_time", "updated_at"];
+  const MAX_TOKEN = 20000; // au-delà, on ignore
+  const MAX_SCAN = 100000; // taille max de texte analysé (évite de scanner une page entière après Ctrl+A)
+  const NAV_KEYS = /^(Arrow(Left|Right|Up|Down)|Home|End|PageUp|PageDown)$/;
   let host = null;
   let lastToken = null;
 
@@ -31,7 +34,7 @@
   const JWT_FIND = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
 
   function findIn(text) {
-    if (!text || typeof text !== "string") return null;
+    if (!text || typeof text !== "string" || text.length > MAX_SCAN) return null;
     for (const src of [text, text.replace(/\s+/g, "")]) {
       for (const m of src.matchAll(JWT_FIND)) {
         try { parse(m[0]); return m[0]; } catch (_) { /* faux positif, on continue */ }
@@ -44,9 +47,13 @@
   // ne sélectionne qu'un segment, car "." et "-" coupent le mot)
   function findAround(text, pos) {
     if (!text || typeof text !== "string" || typeof pos !== "number") return null;
-    for (const m of text.matchAll(JWT_FIND)) {
-      if (m.index <= pos && pos <= m.index + m[0].length) {
-        try { parse(m[0]); return { token: m[0], start: m.index, end: m.index + m[0].length }; }
+    // un token valide contenant `pos` tient forcément dans [pos - MAX_TOKEN, pos + MAX_TOKEN]
+    const from = Math.max(0, pos - MAX_TOKEN);
+    const win = text.slice(from, pos + MAX_TOKEN);
+    for (const m of win.matchAll(JWT_FIND)) {
+      const start = from + m.index, end = start + m[0].length;
+      if (start <= pos && pos <= end) {
+        try { parse(m[0]); return { token: m[0], start, end }; }
         catch (_) { /* ignore */ }
       }
     }
@@ -95,14 +102,16 @@
     return typeof v === "number" ? (v > 1e11 ? v / 1000 : v) : null;
   }
 
-  function rel(sec) {
-    const d = sec - Date.now() / 1000;
-    const a = Math.abs(d);
-    const s =
-      a < 60 ? `${Math.round(a)} s`
+  function dur(a) {
+    return a < 60 ? `${Math.round(a)} s`
       : a < 3600 ? `${Math.round(a / 60)} min`
       : a < 86400 ? `${(a / 3600).toFixed(1)} h`
       : `${(a / 86400).toFixed(1)} j`;
+  }
+
+  function rel(sec) {
+    const d = sec - Date.now() / 1000;
+    const s = dur(Math.abs(d));
     return d >= 0 ? `dans ${s}` : `il y a ${s}`;
   }
 
@@ -229,9 +238,8 @@
       const iatSec = toSec(payload.iat);
       if (expSec != null && iatSec != null) {
         const ttl = expSec - iatSec;
-        const ttlStr = ttl < 60 ? `${Math.round(ttl)} s` : `${Math.round(ttl / 60)} min`;
         const tr = h("tr");
-        tr.append(h("td", null, "ttl"), h("td", null, ttlStr));
+        tr.append(h("td", null, "ttl"), h("td", null, (ttl < 0 ? "-" : "") + dur(Math.abs(ttl))));
         tbl.append(tr);
       }
       sec.append(tbl);
@@ -261,7 +269,7 @@
 
   function check() {
     const s = getToken();
-    if (!s || s.token.length > 20000 || s.token === lastToken) return;
+    if (!s || s.token.length > MAX_TOKEN || s.token === lastToken) return;
     show(s.token, s.rect);
   }
 
@@ -273,10 +281,8 @@
   window.addEventListener("resize", () => { if (host) close(); }, { passive: true });
   window.addEventListener("keyup", (e) => {
     if (e.key === "Escape") close();
-    else if (e.shiftKey || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a")) {
+    else if ((e.shiftKey && NAV_KEYS.test(e.key)) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a")) {
       setTimeout(check, 10); // sélection clavier / Ctrl+A ou Cmd+A
     }
   }, true);
-
-  console.debug("[JWT Peek] actif sur", location.href);
 })();

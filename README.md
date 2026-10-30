@@ -42,7 +42,7 @@ content.js      All the logic: detection, decoding, card rendering, event handli
 | `b64urlDecode`, `parse` | Decodes the header and payload: base64url → UTF-8 → JSON |
 | `findIn`, `findAround` | Finds a JWT in a text, or around a cursor position (regex `eyJ….….…`; each candidate is validated with `parse`) |
 | `getToken` | Reads the current selection: focused input field first, then the page selection, then expands a partial selection |
-| `status`, `rel`, `toSec` | Expiration status and date/duration formatting |
+| `status`, `rel`, `dur`, `toSec` | Expiration status and date/duration formatting |
 | `show` | Builds the card inside a closed Shadow DOM and positions it below (or above) the selection |
 | Event listeners | `mouseup` / `keyup` trigger detection; `mousedown`, `scroll`, `resize` and `Esc` close the card. They use the capture phase so they still fire on pages that stop propagation |
 
@@ -51,7 +51,7 @@ content.js      All the logic: detection, decoding, card rendering, event handli
 - No `fetch`, no `chrome.storage`, no API permissions declared.
 - Token content is treated as untrusted: it is only ever rendered with `textContent`, never `innerHTML`.
 - The card lives in a `closed` Shadow DOM with `all: initial`, isolating it from the page's styles.
-- Tokens longer than 20,000 characters are ignored.
+- Tokens longer than 20,000 characters and selections longer than 100,000 characters are ignored.
 
 Note: because the content script is injected on `<all_urls>`, Chrome shows the "Read and change all your data on all websites" warning at install time. That is the cost of detecting tokens on any page.
 
